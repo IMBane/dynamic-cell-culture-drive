@@ -58,7 +58,7 @@
                 :step="0.1"
                 v-model="runConfiguration.repetitions"
               />
-              <label for="on_label">Repetitions (s)</label>
+              <label for="on_label">Repetitions</label>
             </FloatLabel>
 
             <FloatLabel class="w-full mb-1" variant="on">
@@ -248,7 +248,7 @@
                 <Column field="min_tilt" header="Min Tilt" />
                 <Column field="max_tilt" header="Max Tilt" />
                 <Column field="move_duration" header="Move Duration (s)" />
-                <Column field="repetitions" header="Repetitions (s)" />
+                <Column field="repetitions" header="Repetitions" />
                 <Column field="standstill_duration_left" header="Standstill Duration Left (s)" />
                 <Column field="standstill_duration_horizontal" header="Standstill Duration Horizontal (s)" />
                 <Column field="standstill_duration_right" header="Standstill Duration Right (s)" />
@@ -446,6 +446,9 @@ const setupWebSocket = () => {
     if (msg.type === "tilt_stopped") {
       isTilting.value = false;
       tiltPaused.value = false;
+    }
+    if (msg.type === "repetitions") {
+      repetitionCounter.value = msg.repetitions;
     }
   };
 };

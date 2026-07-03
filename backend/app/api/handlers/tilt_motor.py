@@ -110,6 +110,8 @@ class TiltMotorHandler:
         """Check if the motor can move to the target position and move to the position."""
         if self._tilt_motor_paused or not self._tilt_motor_running:
             return False
+        if target_position == 0 and standstill_duration == 0:
+            return True
         self.move_to_deg(target_position, move_duration + 10)
         time.sleep(standstill_duration)
         return True
@@ -152,10 +154,12 @@ class TiltMotorHandler:
             time.sleep(0.2)
             self._tilt_motor_start_time = time.time()
             self.move_to_deg(0)
-            start_time = time.time()
+            repeat = "repetitions"
             if repetitions == 0:
-                repetitions = 1000000000
-            while self._tilt_motor_running and time.time() - start_time < repetitions:
+                repeat = "infinite"
+            while self._tilt_motor_running and (
+                i < repetitions or repeat == "infinite"
+            ):
                 self.send_repetitions_websocket(i)
                 i += 1
 
@@ -175,7 +179,7 @@ class TiltMotorHandler:
                     0, standstill_duration_horizontal, move_duration
                 ):
                     break
-                if time.time() - start_time > repetitions:
+                if repeat == "repetitions" and i > repetitions:
                     self.send_repetitions_websocket(i)
                     break
             if self._tilt_motor_running:
@@ -189,7 +193,7 @@ class TiltMotorHandler:
             self._tilt_motor_start_time = 0
             self._is_moving = False
             self._motor_status = MotorStatus.IDLE
-            self.stop_motor()
+            self._postep.run_sleep(False)
         except Exception as e:
             print(f"Error in tilt_motor thread: {e}")
 
@@ -270,7 +274,7 @@ class TiltMotorHandler:
         scenario_id: int,
         scenario_name: str,
         microstepping: int,
-        repetitions: int,  # in seconds
+        repetitions: int,
         min_tilt: int,
         max_tilt: int,
         end_position: int = 1,
@@ -464,7 +468,7 @@ class TiltMotorHandler:
 
         return True
 
-    def move_to_home(self, direction: str = "cw") -> bool:
+    def move_to_home(self) -> bool:
         """Move motor to home."""
         # if self._position_deg < 0:
         #    direction = "ccw"
@@ -485,7 +489,7 @@ class TiltMotorHandler:
         self._postep.move_reset_to_zero()
         time.sleep(0.2)
         self._postep.set_requested_speed(400, "cw")
-        time.sleep(0.9)
+        time.sleep(0.916)
         self._postep.set_requested_speed(0)
         self._postep.run_sleep(False)
         self._postep.move_reset_to_zero()
