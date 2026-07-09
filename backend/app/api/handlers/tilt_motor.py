@@ -4,7 +4,9 @@ import time
 from collections import deque
 from datetime import datetime
 from typing import Any, Deque, Dict
-
+import csv
+import os
+import time
 from app.api.handlers.postep256_handler import postep256_handler
 from app.asyncio_loop import get_event_loop
 from app.database.tilt_motor_handler import (
@@ -108,12 +110,33 @@ class TiltMotorHandler:
         self, target_position, standstill_duration, move_duration
     ) -> bool:
         """Check if the motor can move to the target position and move to the position."""
+
+        # Log every call
+        csv_file = "motor_movements.csv"
+        file_exists = os.path.isfile(csv_file)
+
+        with open(csv_file, "a", newline="") as f:
+            writer = csv.writer(f)
+
+            # Write header only if the file is new
+            if not file_exists:
+                writer.writerow(
+                    ["timestamp", "target_position", "standstill_duration", "move_duration"]
+                )
+
+            writer.writerow(
+                [time.time(), target_position, standstill_duration, move_duration]
+            )
+
         if self._tilt_motor_paused or not self._tilt_motor_running:
             return False
+
         if target_position == 0 and standstill_duration == 0:
             return True
+
         self.move_to_deg(target_position, move_duration + 10)
         time.sleep(standstill_duration)
+
         return True
 
     def _send_tilt_stopped_websocket(self):
