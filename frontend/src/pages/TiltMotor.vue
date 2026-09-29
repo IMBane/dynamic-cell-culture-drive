@@ -16,28 +16,41 @@
               <InputText class="w-full" v-model="runConfiguration.name" />
               <label for="on_label">Name</label>
             </FloatLabel>
+            <div v-if="!isSinusoidal" class="flex flex-col gap-1">
+              <FloatLabel class="w-full mb-1" variant="on">
+                <InputNumber
+                  class="w-full"
+                  :min="-20.0"
+                  :max="isSinusoidal ? 0 : 20.0"
+                  :step="0.1"
+                  v-model="runConfiguration.min_tilt"
+                />
+                <label for="on_label">Minimum tilt (deg)</label>
+              </FloatLabel>
 
-            <FloatLabel class="w-full mb-1" variant="on">
-              <InputNumber
-                class="w-full"
-                :min="-20.0"
-                :max="20.0"
-                :step="0.1"
-                v-model="runConfiguration.min_tilt"
-              />
-              <label for="on_label">Minimum tilt (deg)</label>
-            </FloatLabel>
-
-            <FloatLabel class="w-full mb-1" variant="on">
-              <InputNumber
-                class="w-full"
-                :min="-20.0"
-                :max="20.0"
-                :step="0.1"
-                v-model="runConfiguration.max_tilt"
-              />
-              <label for="on_label">Maximum tilt (deg)</label>
-            </FloatLabel>
+              <FloatLabel class="w-full mb-1" variant="on">
+                <InputNumber
+                  class="w-full"
+                  :min="isSinusoidal ? 0 : -20.0"
+                  :max="20.0"
+                  :step="0.1"
+                  v-model="runConfiguration.max_tilt"
+                />
+                <label for="on_label">Maximum tilt (deg)</label>
+              </FloatLabel>
+            </div>
+            <div v-if="isSinusoidal" class="flex flex-col gap-1">
+              <FloatLabel class="w-full mb-1" variant="on">
+                <InputNumber
+                  class="w-full"
+                  :min="0"
+                  :max="20.0"
+                  :step="0.1"
+                  v-model="sinusoidalAmplitude"
+                />
+                <label for="on_label">Amplitudes (deg)</label>
+              </FloatLabel>
+            </div>
 
             <FloatLabel class="w-full mb-1" variant="on">
               <InputNumber
@@ -45,9 +58,35 @@
                 :maxFractionDigits="2"
                 :min="0"
                 :step="0.1"
+                :disabled="isSinusoidal"
                 v-model="runConfiguration.move_duration"
               />
               <label for="on_label">Move duration (s)</label>
+            </FloatLabel>
+
+            <FloatLabel class="w-full mb-3" variant="on">
+              <Select
+                class="w-full"
+                v-model="runConfiguration.movement_mode"
+                :options="movementModeOptions"
+                optionLabel="label"
+                optionValue="value"
+              />
+              <label for="on_label">Movement mode</label>
+            </FloatLabel>
+
+            <FloatLabel v-if="isSinusoidal" class="w-full mb-3" variant="on">
+              <InputNumber
+                class="w-full"
+                :minFractionDigits="2"
+                :maxFractionDigits="3"
+                :min="SINUSOIDAL_MIN_FREQUENCY"
+                :max="SINUSOIDAL_MAX_FREQUENCY"
+                :step="0.05"
+                showButtons
+                v-model="runConfiguration.frequency"
+              />
+              <label for="on_label">Frequency (Hz)</label>
             </FloatLabel>
 
             <FloatLabel class="w-full mb-1" variant="on">
@@ -67,6 +106,7 @@
                 :maxFractionDigits="2"
                 :min="0"
                 :step="0.1"
+                :disabled="isSinusoidal"
                 v-model="runConfiguration.standstill_duration_left"
               />
               <label for="on_label">Standstill duration left (s)</label>
@@ -78,6 +118,7 @@
                 :maxFractionDigits="2"
                 :min="0"
                 :step="0.1"
+                :disabled="isSinusoidal"
                 v-model="runConfiguration.standstill_duration_horizontal"
               />
               <label for="on_label">Standstill duration horizontal (s)</label>
@@ -89,6 +130,7 @@
                 :maxFractionDigits="2"
                 :min="0"
                 :step="0.1"
+                :disabled="isSinusoidal"
                 v-model="runConfiguration.standstill_duration_right"
               />
               <label for="on_label">Standstill duration right (s)</label>
@@ -97,6 +139,7 @@
             <FloatLabel class="w-full mb-1" variant="on">
               <Select
                 class="w-full"
+                :disabled="isSinusoidal"
                 v-model="runConfiguration.end_position"
                 :options="endPositionOptions"
                 optionLabel="label"
@@ -108,6 +151,7 @@
             <FloatLabel class="w-full mb-1" variant="on">
               <Select
                 class="w-full"
+                :disabled="isSinusoidal"
                 v-model="runConfiguration.microstepping"
                 :options="microstepOptions"
                 optionLabel="label"
@@ -245,23 +289,36 @@
                 </Column>
 
                 <Column field="name" header="Name" />
-                <Column field="min_tilt" header="Min Tilt" />
-                <Column field="max_tilt" header="Max Tilt" />
-                <Column field="move_duration" header="Move Duration (s)" />
-                <Column field="repetitions" header="Repetitions" />
-                <Column field="standstill_duration_left" header="Standstill Duration Left (s)" />
-                <Column field="standstill_duration_horizontal" header="Standstill Duration Horizontal (s)" />
-                <Column field="standstill_duration_right" header="Standstill Duration Right (s)" />
+                <Column field="movement_mode" header="Movement Mode">
+                  <template #body="slotProps">
+                    {{ movementModeOptions.find(option => option.value === (slotProps.data.movement_mode ?? 'constant'))?.label }}
+                  </template>
+                </Column>
+                <Column field="frequency" header="Frequency (Hz)">
+                  <template #body="slotProps">
+                    {{ isSinusoidalScenario(slotProps.data) ? slotProps.data.frequency : '/' }}
+                  </template>
+                </Column>
+                <Column
+                  v-for="col in scenarioColumns"
+                  :key="col.field"
+                  :field="col.field"
+                  :header="col.header"
+                >
+                  <template #body="slotProps">
+                    {{ isSinusoidalScenario(slotProps.data) && !col.sinusoidal ? '/' : slotProps.data[col.field] }}
+                  </template>
+                </Column>
 
                 <Column field="end_position" header="End Position">
                   <template #body="slotProps">
-                    {{ endPositionOptions.find(option => option.value === slotProps.data.end_position)?.label }}
+                    {{ isSinusoidalScenario(slotProps.data) ? '/' : endPositionOptions.find(option => option.value === slotProps.data.end_position)?.label }}
                   </template>
                 </Column>
 
                 <Column field="microstepping" header="Microstepping">
                   <template #body="slotProps">
-                    {{ microstepOptions.find(option => option.value === slotProps.data.microstepping)?.label }}
+                    {{ isSinusoidalScenario(slotProps.data) ? '/' : microstepOptions.find(option => option.value === slotProps.data.microstepping)?.label }}
                   </template>
                 </Column>
 
@@ -334,8 +391,8 @@
 // ============================================================
 // Imports
 // ============================================================
-import { ref, onMounted, onBeforeUnmount } from "vue";
-import { tiltMotorApi, type MotorStatus, type MoveScenario, type RunConfiguration, generalApi } from "../api";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { tiltMotorApi, type MotorStatus, type MoveScenario, type MovementMode, type RunConfiguration, generalApi } from "../api";
 import MovementsChart from "../components/MovementsChart.vue";
 import Button from 'primevue/button';
 import Card from 'primevue/card';
@@ -402,6 +459,8 @@ const runConfiguration = ref<RunConfiguration>({
   min_tilt: null,
   max_tilt: null,
   move_duration: null,
+  movement_mode: 'constant',
+  frequency: 0.1,
   repetitions: null,
   end_position: null,
   standstill_duration_left: null,
@@ -418,6 +477,53 @@ const endPositionOptions = ref([
   { label: 'Horizontal', value: 1 },
   { label: 'Right', value: 0 },
 ]);
+
+const movementModeOptions = ref<{ label: string; value: MovementMode }[]>([
+  { label: 'Constant movement', value: 'constant' },
+  { label: 'Sinusoidal movement', value: 'sinusoidal' },
+]);
+
+// Must match SINUSOIDAL_MIN/MAX_FREQUENCY in backend tilt_motor.py
+const SINUSOIDAL_MIN_FREQUENCY = 0.01;
+const SINUSOIDAL_MAX_FREQUENCY = 0.5;
+
+// Sinusoidal movement uses frequency, min/max tilt and repetitions; the other
+// fields are disabled.
+const isSinusoidal = computed(() => runConfiguration.value.movement_mode === 'sinusoidal');
+const isSinusoidalScenario = (scenario: MoveScenario) => scenario.movement_mode === 'sinusoidal';
+
+// The sinusoidal UI exposes one positive amplitude while the API needs the
+// corresponding negative and positive tilt limits.
+const sinusoidalAmplitude = computed({
+  get: (): number | null => {
+    const amplitude = runConfiguration.value.max_tilt ?? runConfiguration.value.min_tilt;
+    return amplitude === null ? null : Math.abs(amplitude);
+  },
+  set: (amplitude: number | null) => {
+    if (amplitude === null) {
+      runConfiguration.value.min_tilt = null;
+      runConfiguration.value.max_tilt = null;
+      return;
+    }
+
+    const normalizedAmplitude = Math.abs(amplitude);
+    runConfiguration.value.min_tilt = -normalizedAmplitude;
+    runConfiguration.value.max_tilt = normalizedAmplitude;
+
+  },
+});
+
+// Plain-value scenario table columns. Columns without `sinusoidal` are shown
+// as "/" for sinusoidal scenarios.
+const scenarioColumns: { field: keyof MoveScenario; header: string; sinusoidal?: boolean }[] = [
+  { field: 'min_tilt', header: 'Min Tilt', sinusoidal: true },
+  { field: 'max_tilt', header: 'Max Tilt', sinusoidal: true },
+  { field: 'move_duration', header: 'Move Duration (s)' },
+  { field: 'repetitions', header: 'Repetitions', sinusoidal: true },
+  { field: 'standstill_duration_left', header: 'Standstill Duration Left (s)' },
+  { field: 'standstill_duration_horizontal', header: 'Standstill Duration Horizontal (s)' },
+  { field: 'standstill_duration_right', header: 'Standstill Duration Right (s)' },
+];
 
 const microstepOptions = ref([
   { label: '1/4 step', value: 2 },
@@ -448,7 +554,7 @@ const setupWebSocket = () => {
       tiltPaused.value = false;
     }
     if (msg.type === "repetitions") {
-      repetitionCounter.value = msg.repetitions;
+      repetitionCounter.value = msg.data?.repetitions ?? repetitionCounter.value;
     }
   };
 };
@@ -475,10 +581,12 @@ const tiltMotor = async () => {
     }));
     const response = await tiltMotorApi.tiltMotor(entry_name, {
       ...runConfiguration.value,
+      frequency: isSinusoidal.value ? runConfiguration.value.frequency : null,
     });
     isTilting.value = response.success;
   } catch (err: any) {
-    showError("Error with starting tilting.");
+    const detail = err.response?.status === 400 ? ` ${err.response.data.detail}` : '';
+    showError("Error with starting tilting." + detail);
   }
 };
 
@@ -546,11 +654,7 @@ const fetchScenarios = async () => {
 const fetchScenario = async (scenarioId: number) => {
   try {
     const response = await tiltMotorApi.getMoveScenario(scenarioId);
-    runConfiguration.value = {
-      scenario_id: response.id || null,
-      scenario_name: response.name || null,
-      ...response,
-    };
+    loadScenario(response);
   } catch (err: any) {
     showError("Error with fetching scenario.");
   }
@@ -561,6 +665,9 @@ const loadScenario = (scenario: MoveScenario) => {
     scenario_id: scenario.id || null,
     scenario_name: scenario.name || null,
     ...scenario,
+    // Scenarios saved before movement modes existed are constant movements.
+    movement_mode: scenario.movement_mode ?? 'constant',
+    frequency: scenario.frequency ?? runConfiguration.value.frequency,
   };
 };
 
@@ -587,15 +694,27 @@ const handleUpdateScenario = async () => {
     }
   } catch (err: any) {
     if (err.response.status === 422) {
-      showError("Error with updating scenario. Fields missing.");
+      showError("Error with updating scenario. " + formatValidationError(err.response.data.detail));
     } else {
       showError("Error with updating scenario.");
     }
   }
 };
 
+// FastAPI 422 details: field errors have loc ["body", field], model-level
+// (movement mode) errors only have loc ["body"].
+const formatValidationError = (detail: any): string => {
+  if (!Array.isArray(detail) || detail.length !== 1) {
+    return "Fields missing.";
+  }
+  const field = detail[0].loc?.[1];
+  const msg = String(detail[0].msg ?? '').replace(/^Value error, /, '');
+  return field ? `${field} ${msg}` : msg;
+};
+
 const handleSaveScenario = async () => {
   try {
+    console.log("Saving scenario:", runConfiguration.value);
     const response = await tiltMotorApi.saveMoveScenario({
       id: null,
       ...runConfiguration.value,
@@ -616,11 +735,7 @@ const handleSaveScenario = async () => {
       }
     }
     else if (err.response.status === 422) {
-      if (err.response.data.detail.length > 1) {
-        showError("Error with saving scenario. Fields missing.");
-      } if (err.response.data.detail.length === 1){
-        showError("Error with saving scenario. " + err.response.data.detail[0].loc[1] + " " + err.response.data.detail[0].msg);
-      }
+      showError("Error with saving scenario. " + formatValidationError(err.response.data.detail));
     }
     else {
       showError("Error with saving scenario.");
@@ -633,18 +748,30 @@ const handleSaveScenario = async () => {
 // ============================================================
 const handleExportScenario = () => {
   try {
-    const scenario = {
-      name: runConfiguration.value.name,
-      min_tilt: runConfiguration.value.min_tilt,
-      max_tilt: runConfiguration.value.max_tilt,
-      repetitions: runConfiguration.value.repetitions,
-      move_duration: runConfiguration.value.move_duration,
-      standstill_duration_left: runConfiguration.value.standstill_duration_left,
-      standstill_duration_horizontal: runConfiguration.value.standstill_duration_horizontal,
-      standstill_duration_right: runConfiguration.value.standstill_duration_right,
-      end_position: runConfiguration.value.end_position,
-      microstepping: runConfiguration.value.microstepping,
-    };
+    const config = runConfiguration.value;
+    // Sinusoidal scenarios only carry frequency, min/max tilt and repetitions.
+    const scenario = config.movement_mode === 'sinusoidal'
+      ? {
+          name: config.name,
+          movement_mode: 'sinusoidal',
+          frequency: config.frequency,
+          min_tilt: config.min_tilt,
+          max_tilt: config.max_tilt,
+          repetitions: config.repetitions,
+        }
+      : {
+          name: config.name,
+          movement_mode: 'constant',
+          min_tilt: config.min_tilt,
+          max_tilt: config.max_tilt,
+          repetitions: config.repetitions,
+          move_duration: config.move_duration,
+          standstill_duration_left: config.standstill_duration_left,
+          standstill_duration_horizontal: config.standstill_duration_horizontal,
+          standstill_duration_right: config.standstill_duration_right,
+          end_position: config.end_position,
+          microstepping: config.microstepping,
+        };
     const json = JSON.stringify(scenario, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -700,6 +827,21 @@ const handleFileSelect = (event: any) => {
           return false;
         }
 
+        // Files exported before movement modes existed are constant movements.
+        const mode = obj.movement_mode ?? 'constant';
+        if (mode !== 'constant' && mode !== 'sinusoidal') {
+          showError('Invalid format: "movement_mode" must be "constant" or "sinusoidal"');
+          return false;
+        }
+
+        if (mode === 'sinusoidal' && (
+            typeof obj.frequency !== 'number' ||
+            obj.frequency < SINUSOIDAL_MIN_FREQUENCY ||
+            obj.frequency > SINUSOIDAL_MAX_FREQUENCY)) {
+          showError(`Invalid format: "frequency" field is required and must be a number between ${SINUSOIDAL_MIN_FREQUENCY} and ${SINUSOIDAL_MAX_FREQUENCY}`);
+          return false;
+        }
+
         if (!('min_tilt' in obj) || typeof obj.min_tilt !== 'number') {
           showError('Invalid format: "min_tilt" field is required and must be a number');
           return false;
@@ -713,6 +855,10 @@ const handleFileSelect = (event: any) => {
         if (!('repetitions' in obj) || typeof obj.repetitions !== 'number') {
           showError('Invalid format: "repetitions" field is required and must be a number');
           return false;
+        }
+
+        if (mode === 'sinusoidal') {
+          return true;
         }
 
         if (!('move_duration' in obj) || typeof obj.move_duration !== 'number') {
@@ -753,19 +899,39 @@ const handleFileSelect = (event: any) => {
         return;
       }
 
-      scenarios.value.push({
-        name: data.name,
-        min_tilt: data.min_tilt,
-        max_tilt: data.max_tilt,
-        repetitions: data.repetitions,
-        move_duration: data.move_duration,
-        standstill_duration_left: data.standstill_duration_left,
-        standstill_duration_horizontal: data.standstill_duration_horizontal,
-        standstill_duration_right: data.standstill_duration_right,
-        end_position: data.end_position,
-        microstepping: data.microstepping,
-        imported: true,
-      });
+      if (data.movement_mode === 'sinusoidal') {
+        scenarios.value.push({
+          name: data.name,
+          movement_mode: 'sinusoidal',
+          frequency: data.frequency,
+          min_tilt: data.min_tilt,
+          max_tilt: data.max_tilt,
+          repetitions: data.repetitions,
+          move_duration: null,
+          standstill_duration_left: null,
+          standstill_duration_horizontal: null,
+          standstill_duration_right: null,
+          end_position: null,
+          microstepping: null,
+          imported: true,
+        });
+      } else {
+        scenarios.value.push({
+          name: data.name,
+          movement_mode: 'constant',
+          frequency: null,
+          min_tilt: data.min_tilt,
+          max_tilt: data.max_tilt,
+          repetitions: data.repetitions,
+          move_duration: data.move_duration,
+          standstill_duration_left: data.standstill_duration_left,
+          standstill_duration_horizontal: data.standstill_duration_horizontal,
+          standstill_duration_right: data.standstill_duration_right,
+          end_position: data.end_position,
+          microstepping: data.microstepping,
+          imported: true,
+        });
+      }
       showSuccess("Scenario imported successfully.");
 
     } catch (error) {

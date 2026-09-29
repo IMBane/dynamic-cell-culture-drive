@@ -102,7 +102,9 @@ const props = defineProps<{
   chartHeight: number | 600;
 }>();
 
-const maxDataPoints = 20;
+// Tilt measurements arrive in batches of ~25-50 points every 0.5 s, so a
+// 20-point window would only show a fraction of a second of the movement.
+const maxDataPoints = props.type === 0 ? 1000 : 20;
 const websocketUrl =
   (window.location.protocol === "https:" ? "wss://" : "ws://") +
   window.location.hostname +
@@ -269,7 +271,7 @@ const setupWebSocket = () => {
   try {
     const msg = JSON.parse(event.data);
     if (!msg.data) return;
-    if (msg.data[0].entry_id){
+    if (Array.isArray(msg.data) && msg.data[0]?.entry_id) {
       entryId.value = msg.data[0].entry_id;
     }
     if (msg.type === "tilt") {

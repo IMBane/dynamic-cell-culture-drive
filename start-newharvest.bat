@@ -3,6 +3,22 @@ set PROJECT_DIR=C:\path\to\dynamic-cell-culture-drive
 set BACKEND_DIR=%PROJECT_DIR%\backend
 set FRONTEND_DIR=%PROJECT_DIR%\frontend
 
+REM Create and prepare the backend Python environment
+if not exist "%BACKEND_DIR%\venv\Scripts\python.exe" (
+    echo Creating backend virtual environment...
+    py -3 -m venv "%BACKEND_DIR%\venv"
+    if errorlevel 1 exit /b 1
+)
+
+call "%BACKEND_DIR%\venv\Scripts\activate.bat"
+if errorlevel 1 exit /b 1
+
+echo Installing backend dependencies...
+python -m pip install --upgrade pip
+if errorlevel 1 exit /b 1
+python -m pip install -r "%BACKEND_DIR%\requirements.txt"
+if errorlevel 1 exit /b 1
+
 
 REM Start Docker Desktop (no-op if already running)
 start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
@@ -16,8 +32,15 @@ if errorlevel 1 (
 )
 
 REM Start services
-docker compose up -f docker-compose-win.yml -d
+cd /d "%PROJECT_DIR%"
+docker compose -f docker-compose-win.yml up -d
+if errorlevel 1 (
+    echo Docker Compose failed to start the database services.
+    pause
+    exit /b 1
+)
 
+timeout /t 10 >nul
 REM ==========================
 REM Start Backend (PowerShell)
 REM ==========================

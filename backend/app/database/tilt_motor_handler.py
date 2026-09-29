@@ -16,7 +16,7 @@ def get_tilt_scenarios() -> List[Dict[str, Any]]:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, name,
+                    SELECT id, name, movement_mode, frequency,
                         microstepping, min_tilt, max_tilt, move_duration, repetitions, standstill_duration_left, standstill_duration_horizontal, standstill_duration_right, end_position
                     FROM tilt_scenarios WHERE is_active = TRUE
                     ORDER BY name
@@ -36,21 +36,23 @@ def create_tilt_scenario(scenario_data: Dict[str, Any]) -> int:
                 cur.execute(
                     """
                     INSERT INTO tilt_scenarios
-                    (name, microstepping, min_tilt, max_tilt, move_duration, repetitions, standstill_duration_left, standstill_duration_horizontal, standstill_duration_right, end_position)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    (name, movement_mode, frequency, microstepping, min_tilt, max_tilt, move_duration, repetitions, standstill_duration_left, standstill_duration_horizontal, standstill_duration_right, end_position)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """,
                     (
                         scenario_data["name"],
-                        scenario_data["microstepping"],
-                        scenario_data["min_tilt"],
-                        scenario_data["max_tilt"],
-                        scenario_data["move_duration"],
-                        scenario_data["repetitions"],
-                        scenario_data.get("standstill_duration_left", 0.2),
-                        scenario_data.get("standstill_duration_horizontal", 0.2),
-                        scenario_data.get("standstill_duration_right", 0.2),
-                        scenario_data["end_position"],
+                        scenario_data.get("movement_mode", "constant"),
+                        scenario_data.get("frequency"),
+                        scenario_data.get("microstepping"),
+                        scenario_data.get("min_tilt"),
+                        scenario_data.get("max_tilt"),
+                        scenario_data.get("move_duration"),
+                        scenario_data.get("repetitions"),
+                        scenario_data.get("standstill_duration_left"),
+                        scenario_data.get("standstill_duration_horizontal"),
+                        scenario_data.get("standstill_duration_right"),
+                        scenario_data.get("end_position"),
                     ),
                 )
                 result = cur.fetchone()  # Move inside cursor context
@@ -67,22 +69,24 @@ def update_tilt_scenario(scenario_id: int, scenario_data: Dict[str, Any]) -> boo
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    """UPDATE tilt_scenarios SET name = %s,
+                    """UPDATE tilt_scenarios SET name = %s, movement_mode = %s, frequency = %s,
                             microstepping = %s, min_tilt = %s, max_tilt = %s, move_duration = %s, repetitions = %s,
                             standstill_duration_left = %s, standstill_duration_horizontal = %s, standstill_duration_right = %s, end_position = %s
                             WHERE id = %s
                             """,
                     (
                         scenario_data["name"],
-                        scenario_data["microstepping"],
-                        scenario_data["min_tilt"],
-                        scenario_data["max_tilt"],
-                        scenario_data["move_duration"],
-                        scenario_data["repetitions"],
-                        scenario_data["standstill_duration_left"],
-                        scenario_data["standstill_duration_horizontal"],
-                        scenario_data["standstill_duration_right"],
-                        scenario_data["end_position"],
+                        scenario_data.get("movement_mode", "constant"),
+                        scenario_data.get("frequency"),
+                        scenario_data.get("microstepping"),
+                        scenario_data.get("min_tilt"),
+                        scenario_data.get("max_tilt"),
+                        scenario_data.get("move_duration"),
+                        scenario_data.get("repetitions"),
+                        scenario_data.get("standstill_duration_left"),
+                        scenario_data.get("standstill_duration_horizontal"),
+                        scenario_data.get("standstill_duration_right"),
+                        scenario_data.get("end_position"),
                         scenario_id,
                     ),
                 )
@@ -118,7 +122,7 @@ def get_tilt_scenario(scenario_id: str) -> Optional[Dict[str, Any]]:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT id, name,
+                    SELECT id, name, movement_mode, frequency,
                            microstepping, min_tilt, max_tilt, move_duration, repetitions, standstill_duration_left, standstill_duration_horizontal, standstill_duration_right, end_position
                     FROM tilt_scenarios WHERE id = %s
                 """,

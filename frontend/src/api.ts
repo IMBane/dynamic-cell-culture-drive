@@ -110,9 +110,13 @@ export interface PeristalticRotateRequest {
   movements: PeristalticMovement[]
 }
 
+export type MovementMode = 'constant' | 'sinusoidal'
+
 export interface MoveScenario {
   id: number | null
   name: string | null
+  movement_mode?: MovementMode
+  frequency?: number | null
   min_tilt: number | null
   max_tilt: number | null
   repetitions: number | null
@@ -128,6 +132,8 @@ export interface RunConfiguration {
   name: string | null
   scenario_name: string | null
   scenario_id: number | null
+  movement_mode?: MovementMode
+  frequency?: number | null
   min_tilt: number | null
   max_tilt: number | null
   move_duration: number | null

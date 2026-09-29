@@ -113,6 +113,9 @@ class RotaryMotorHandler:
 
     def _set_requested_speed(self, speed, direction, prev_direction="cw"):
         """Set the requested speed for the motor."""
+        if prev_direction != direction and self._current_speed > 0:
+            self._lower_speed_gradually(self._current_speed, sleep_when_stopped=False)
+
         if speed < self._current_speed and prev_direction == direction:
             for i in range(int(self._movement_speed), int(speed), -5):
                 self._add_to_measurement_queue(
@@ -165,24 +168,26 @@ class RotaryMotorHandler:
                 self._postep.set_requested_speed(i, direction)
                 self._current_speed = i
                 time.sleep(0.05)
+        if not self._stop_pressed:
+            self._postep.set_requested_speed(int(speed), direction)
+            self._current_speed = int(speed)
         return
 
-    def _lower_speed_gradually(
-        self, speed: int, direction: str, send_measurements: bool = True
-    ):
+    def _lower_speed_gradually(self, speed: int, sleep_when_stopped: bool = True):
         """Lower the speed gradually."""
         for i in range(speed, 0, -5):
-            if send_measurements:
-                self._add_to_measurement_queue(
-                    entry_id=self._current_entry_id,
-                    speed=i / 100,
-                    direction=self._current_direction,
-                    time=time.time() - self._rotate_motor_start_time,
-                )
-            self._postep.set_requested_speed(i, direction)
+            self._add_to_measurement_queue(
+                entry_id=self._current_entry_id,
+                speed=i / 100,
+                direction=self._current_direction,
+                time=time.time() - self._rotate_motor_start_time,
+            )
+            self._postep.set_requested_speed(i, self._current_direction)
             self._current_speed = i
             time.sleep(0.05)
-        self._postep.set_requested_speed(0, direction)
+        self._postep.set_requested_speed(0, self._current_direction)
+        if sleep_when_stopped:
+            self._postep.set_run(False)
         self._current_speed = 0
 
     def _rotate_motor_thread(self, movements: list[Movement]):

@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 # =========================
 # Common / Shared Models
@@ -45,31 +45,75 @@ class TiltMotorRequest(BaseModel):
     entry_name: str
     scenario_name: str | None
     scenario_id: int | None
-    min_tilt: int
-    max_tilt: int
-    move_duration: float
-    repetitions: int
-    end_position: int
-    microstepping: int
+    # Required fields depend on movement_mode, so they may be empty.
+    min_tilt: Optional[int] = None
+    max_tilt: Optional[int] = None
+    move_duration: Optional[float] = None
+    repetitions: Optional[int] = None
+    end_position: Optional[int] = None
+    microstepping: Optional[int] = None
     standstill_duration_left: Optional[float]
     standstill_duration_horizontal: Optional[float]
     standstill_duration_right: Optional[float]
+    movement_mode: Literal["constant", "sinusoidal"] = "constant"
+    frequency: Optional[float] = None  # Hz, used by "sinusoidal"
+
+
+CONSTANT_SCENARIO_FIELDS = (
+    "microstepping",
+    "min_tilt",
+    "max_tilt",
+    "repetitions",
+    "move_duration",
+    "end_position",
+    "standstill_duration_left",
+    "standstill_duration_horizontal",
+    "standstill_duration_right",
+)
+
+SINUSOIDAL_SCENARIO_FIELDS = ("frequency", "min_tilt", "max_tilt", "repetitions")
 
 
 class MoveScenario(BaseModel):
-    """Move scenario model (tilt)."""
+    """Move scenario model (tilt).
 
-    id: Optional[int]
+    Constant scenarios use all movement fields except frequency.
+    Sinusoidal scenarios use frequency, min_tilt, max_tilt and repetitions;
+    the other fields are stored empty.
+    """
+
+    id: Optional[int] = None
     name: str
-    microstepping: int
-    min_tilt: int
-    max_tilt: int
-    repetitions: int
-    move_duration: float
-    end_position: int
-    standstill_duration_left: float
-    standstill_duration_horizontal: float
-    standstill_duration_right: float
+    movement_mode: Literal["constant", "sinusoidal"] = "constant"
+    frequency: Optional[float] = None
+    microstepping: Optional[int] = None
+    min_tilt: Optional[int] = None
+    max_tilt: Optional[int] = None
+    repetitions: Optional[int] = None
+    move_duration: Optional[float] = None
+    end_position: Optional[int] = None
+    standstill_duration_left: Optional[float] = None
+    standstill_duration_horizontal: Optional[float] = None
+    standstill_duration_right: Optional[float] = None
+
+    @model_validator(mode="after")
+    def check_mode_fields(self) -> "MoveScenario":
+        """Require the fields of the selected mode and clear the others."""
+        if self.movement_mode == "sinusoidal":
+            required = SINUSOIDAL_SCENARIO_FIELDS
+            unused = set(CONSTANT_SCENARIO_FIELDS) - set(required)
+        else:
+            required, unused = CONSTANT_SCENARIO_FIELDS, {"frequency"}
+        missing = [f for f in required if getattr(self, f) is None]
+        if missing:
+            raise ValueError(
+                f"{', '.join(missing)} required for {self.movement_mode} movement"
+            )
+        for field in unused:
+            setattr(self, field, None)
+        if self.frequency is not None and self.frequency <= 0:
+            raise ValueError("frequency must be greater than 0")
+        return self
 
 
 class EntryCreate(BaseModel):

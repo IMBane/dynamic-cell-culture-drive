@@ -65,6 +65,14 @@ characteristics, such as:
 - `Standstill duration right` (standstill duration for `Max tilt` position in seconds).
 - `End position` (end position of motor after finishing the movements - left/horizontal/right).
 - `Microstepping` ( 1/4 step - 1/256 step).
+- `Movement mode`:
+  - `Constant movement` uses all of the fields above.
+  - `Sinusoidal movement` tilts the platform along a sine wave that starts in the middle and goes to
+    `Max tilt` and `Min tilt` (`Min tilt` must be between -20 and 0 degrees, `Max tilt` between 0
+    and 20 degrees). It uses the `Frequency`, `Min tilt`, `Max tilt` and `Repetitions` fields
+    (`Repetitions` is the number of full periods, 0 means infinite), so all other movement fields
+    are disabled.
+- `Frequency` (only for `Sinusoidal movement`, 0.01 Hz - 0.5 Hz).
 
 > [!WARNING] > **Tilt Motor Safety Notice**
 >
@@ -121,13 +129,16 @@ The **Move Scenarios** section displays a table of our saved scenarios:
 
 ![image](scenarios-table.png)
 
-The table contains **12** fields:
+The table contains **15** fields:
 
 - field `DB` displays an icon if the scenario is saved in the database or not.
 - field `Name` displays the scenario name.
+- field `Movement Mode` displays whether the scenario is a constant or sinusoidal movement.
+- field `Frequency` displays the frequency of a sinusoidal movement in Hz.
 - field `Min Tilt` displays the minimum tilt degrees of the scenario.
 - field `Max Tilt` displays the maximum tilt degrees of the scenario.
 - field `Move Duration` displays the duration of one move in seconds.
+- field `Repetitions` displays the number of repetitions of the scenario.
 - field `Standstill Duration Left` displays the standstill duration of left position in seconds.
 - field `Standstill Duration Horizontal` displays the standstill duration of horizontal position in
   seconds.
@@ -135,6 +146,10 @@ The table contains **12** fields:
 - field `End Position` displays the end position of motor after finishing the scenario.
 - field `Microstepping` displays the microstepping setting set for the scenario
 - Filed `Actions` allows us to load the scenario to the **Run Configuration** or to delete it.
+
+> [!NOTE] Fields that are not used by the scenario's movement mode are displayed as `/`. A
+> sinusoidal scenario only has `Frequency`, `Min Tilt`, `Max Tilt` and `Repetitions`, and a constant
+> scenario has every field except `Frequency`.
 
 Pressing the button **Import** in this section allows us to import a scenario from a .json file in
 format described in section [Import/Export Format](#tilt-importexport-format)
@@ -151,11 +166,14 @@ format described in section [Import/Export Format](#tilt-importexport-format)
 
 ### Tilt Import/Export Format
 
-The format of Run Configuration / Run scenario for import or export is in following format:
+The format of Run Configuration / Run scenario for import or export depends on the movement mode.
+
+**Constant movement** (files without `movement_mode` are imported as constant movement):
 
 ```json
 {
   "name": "desired_name",
+  "movement_mode": "constant",
   "min_tilt": min_tilt_degs,
   "max_tilt": max_tilt_degs,
   "repetitions": reps_in_sec,
@@ -165,6 +183,19 @@ The format of Run Configuration / Run scenario for import or export is in follow
   "standstill_duration_right": standstill_right_in_sec,
   "end_position": left/horizontal/right,
   "microstepping": microstepping
+}
+```
+
+**Sinusoidal movement**:
+
+```json
+{
+  "name": "desired_name",
+  "movement_mode": "sinusoidal",
+  "frequency": frequency_in_hz,
+  "min_tilt": min_tilt_degs,
+  "max_tilt": max_tilt_degs,
+  "repetitions": reps
 }
 ```
 

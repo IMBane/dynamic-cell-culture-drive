@@ -25,16 +25,42 @@ CREATE TABLE IF NOT EXISTS peristaltic_entry_table (
 CREATE TABLE IF NOT EXISTS tilt_scenarios (
 	id SERIAL PRIMARY KEY,
 	name VARCHAR(255) NOT NULL,
-	microstepping INT NOT NULL,
-	min_tilt INT NOT NULL,
-	max_tilt INT NOT NULL,
-	move_duration FLOAT NOT NULL,
-	repetitions INT NOT NULL,
-	end_position INT NOT NULL,
-	standstill_duration_left FLOAT NOT NULL,
-	standstill_duration_horizontal FLOAT NOT NULL,
-	standstill_duration_right FLOAT NOT NULL,
+	-- 'constant' uses all movement fields below except frequency.
+	-- 'sinusoidal' uses frequency, min_tilt, max_tilt and repetitions; the
+	-- other movement fields are NULL.
+	movement_mode VARCHAR(20) NOT NULL DEFAULT 'constant' CHECK (movement_mode IN ('constant', 'sinusoidal')),
+	frequency FLOAT CHECK (frequency > 0),
+	microstepping INT,
+	min_tilt INT,
+	max_tilt INT,
+	move_duration FLOAT,
+	repetitions INT,
+	end_position INT,
+	standstill_duration_left FLOAT,
+	standstill_duration_horizontal FLOAT,
+	standstill_duration_right FLOAT,
 	is_active BOOLEAN NOT NULL DEFAULT TRUE
+	CONSTRAINT tilt_scenarios_mode_fields_check CHECK (
+		(
+			movement_mode = 'sinusoidal'
+			AND frequency IS NOT NULL
+			AND min_tilt IS NOT NULL
+			AND max_tilt IS NOT NULL
+			AND repetitions IS NOT NULL
+		)
+		OR (
+			movement_mode = 'constant'
+			AND microstepping IS NOT NULL
+			AND min_tilt IS NOT NULL
+			AND max_tilt IS NOT NULL
+			AND move_duration IS NOT NULL
+			AND repetitions IS NOT NULL
+			AND end_position IS NOT NULL
+			AND standstill_duration_left IS NOT NULL
+			AND standstill_duration_horizontal IS NOT NULL
+			AND standstill_duration_right IS NOT NULL
+		)
+	)
 );
 
 CREATE TABLE IF NOT EXISTS rotary_scenarios (

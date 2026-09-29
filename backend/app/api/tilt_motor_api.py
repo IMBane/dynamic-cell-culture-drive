@@ -37,6 +37,8 @@ def tilt_motor(
             standstill_duration_left=request.standstill_duration_left,
             standstill_duration_horizontal=request.standstill_duration_horizontal,
             standstill_duration_right=request.standstill_duration_right,
+            movement_mode=request.movement_mode,
+            frequency=request.frequency,
         )
         return {"success": success, "message": "Tilt motor started."}
     except ValueError as e:
